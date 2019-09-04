@@ -1,6 +1,7 @@
 package statuspage
 
 import (
+	"errors"
 	"log"
 
 	"github.com/hashicorp/terraform/helper/schema"
@@ -96,12 +97,38 @@ func resourceComponentGroupDelete(d *schema.ResourceData, m interface{}) error {
 	return sp.DeleteComponentGroup(client, d.Get("page_id").(string), d.Id())
 }
 
+func resourceComponentGroupImport(d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	resourceId, err := parsePageResourceId(d.Id())
+	if err != nil {
+		return nil, errors.New("id is not formatted properly; id should be '$page_id/$component_id', but: " + d.Id())
+	}
+	client := m.(*sp.Client)
+
+	componentGroup, err := sp.GetComponentGroup(client, resourceId.pageId, resourceId.resourceId)
+	if err != nil || componentGroup == nil {
+		log.Printf("[ERROR] Statuspage could not find component group with ID: %s\n", d.Id())
+		return nil, err
+	}
+
+	d.SetId(componentGroup.ID)
+	d.Set("page_id", componentGroup.PageID)
+	d.Set("name", componentGroup.Name)
+	d.Set("description", componentGroup.Description)
+	d.Set("components", componentGroup.Components)
+
+	log.Printf("[INFO] Statuspage imported componentGroup: %s\n", componentGroup.ID)
+	return []*schema.ResourceData{d}, nil
+}
+
 func resourceComponentGroup() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceComponentGroupCreate,
 		Read:   resourceComponentGroupRead,
 		Update: resourceComponentGroupUpdate,
 		Delete: resourceComponentGroupDelete,
+		Importer: &schema.ResourceImporter{
+			State: resourceComponentGroupImport,
+		},
 
 		Schema: map[string]*schema.Schema{
 			"page_id": &schema.Schema{

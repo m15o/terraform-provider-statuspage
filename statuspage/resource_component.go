@@ -1,6 +1,7 @@
 package statuspage
 
 import (
+	"errors"
 	"log"
 
 	"github.com/hashicorp/terraform/helper/schema"
@@ -90,13 +91,42 @@ func resourceComponentDelete(d *schema.ResourceData, m interface{}) error {
 	return sp.DeleteComponent(client, d.Get("page_id").(string), d.Id())
 }
 
+func resourceComponentImport(d *schema.ResourceData, m interface{}) ([]*schema.ResourceData, error) {
+	resourceId, err := parsePageResourceId(d.Id())
+	if err != nil {
+		return nil, errors.New("id is not formatted properly; id should be '$page_id/$component_id', but: " + d.Id())
+	}
+	client := m.(*sp.Client)
+
+	component, err := sp.GetComponent(client, resourceId.pageId, resourceId.pageId)
+	if err != nil && component != nil {
+		log.Printf("[ERROR] Statuspage could not find component with ID: %s\n", d.Id())
+		return nil, err
+	}
+
+	d.SetId(component.ID)
+	d.Set("page_id", component.PageID)
+	d.Set("name", component.Name)
+	d.Set("description", component.Description)
+	d.Set("group_id", component.GroupID)
+	d.Set("only_show_if_degraded", component.OnlyShowIfDegraded)
+	d.Set("status", component.Status)
+	d.Set("showcase", component.Showcase)
+	d.Set("automation_email", component.AutomationEmail)
+
+	log.Printf("[INFO] Statuspage imported component: %s\n", component.ID)
+	return []*schema.ResourceData{d}, nil
+}
+
 func resourceComponent() *schema.Resource {
 	return &schema.Resource{
 		Create: resourceComponentCreate,
 		Read:   resourceComponentRead,
 		Update: resourceComponentUpdate,
 		Delete: resourceComponentDelete,
-
+		Importer: &schema.ResourceImporter{
+			State: resourceComponentImport,
+		},
 		Schema: map[string]*schema.Schema{
 			"page_id": &schema.Schema{
 				Type:        schema.TypeString,
