@@ -98,10 +98,15 @@ func resourceComponentImport(d *schema.ResourceData, m interface{}) ([]*schema.R
 	}
 	client := m.(*sp.Client)
 
-	component, err := sp.GetComponent(client, resourceId.pageId, resourceId.pageId)
-	if err != nil && component != nil {
+	component, err := sp.GetComponent(client, resourceId.pageId, resourceId.resourceId)
+	if err != nil {
 		log.Printf("[ERROR] Statuspage could not find component with ID: %s\n", d.Id())
 		return nil, err
+	}
+
+	if component == nil {
+		log.Printf("[ERROR] Statuspage returns null component with ID: %s\n", d.Id())
+		return nil, errors.New("Statuspage could not find component with ID: " + d.Id())
 	}
 
 	d.SetId(component.ID)

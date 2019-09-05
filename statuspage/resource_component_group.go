@@ -105,9 +105,14 @@ func resourceComponentGroupImport(d *schema.ResourceData, m interface{}) ([]*sch
 	client := m.(*sp.Client)
 
 	componentGroup, err := sp.GetComponentGroup(client, resourceId.pageId, resourceId.resourceId)
-	if err != nil || componentGroup == nil {
+	if err != nil {
 		log.Printf("[ERROR] Statuspage could not find component group with ID: %s\n", d.Id())
 		return nil, err
+	}
+
+	if componentGroup == nil {
+		log.Printf("[ERROR] Statuspage could returns null component group with ID: %s\n", d.Id())
+		return nil, errors.New("Statuspage could not find component with ID: " + d.Id())
 	}
 
 	d.SetId(componentGroup.ID)
